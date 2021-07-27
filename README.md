@@ -12,7 +12,7 @@ Then you can activate the environment by running:
 source activate py3.6  
 ```
 ## Instructions
-To train a CoDy+SAC agent on the ```sh cartpole swingup ``` task from images, you can run:
+To train a CoDy+SAC agent on the ```cartpole swingup ``` task from images, you can run:
 ```sh
 python train.py \
     --domain_name cartpole \
