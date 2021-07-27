@@ -2,7 +2,7 @@ from itertools import product
 from experiment_launcher import Launcher
 
 if __name__ == '__main__':
-    local = False
+    local = True
     test = False
     use_cuda = True
 
@@ -20,11 +20,11 @@ if __name__ == '__main__':
                         gres='gpu:rtx2080:1' if use_cuda else None,
                         use_timestamp=True)
 
-    # curl_lr_list = [1e-5, 1e-6, 1e-7]
-    #beta_curl_list = [1e3, 100, 1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
-    #beta_curl_list = [1e3, 1, 0.01, 1e-4, 1e-6, 1e-8]
-    #beta_curl_list = [1e5, 1e7]
-    #beta_curl_list = [1e6, 1e4, 100]
+    # cody_lr_list = [1e-5, 1e-6, 1e-7]
+    #beta_cody_list = [1e3, 100, 1, 0.1, 0.01, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7]
+    #beta_cody_list = [1e3, 1, 0.01, 1e-4, 1e-6, 1e-8]
+    #beta_cody_list = [1e5, 1e7]
+    #beta_cody_list = [1e6, 1e4, 100]
     launcher.add_default_params(
         domain_name='finger',
         task_name='spin',
@@ -33,13 +33,13 @@ if __name__ == '__main__':
         num_train_steps=251000,
         replay_buffer_capacity=100000,
         eval_freq=5000,
-        curl_lr=1e-3,
-        omega_curl_loss=100,
-        beta_curl=1000
+        cody_lr=1e-3,
+        omega_cody_loss=100,
+        beta_cody=1000
     )
 
-    #for beta_curl in beta_curl_list:
-    #    launcher.add_experiment(beta_curl=beta_curl)
+    #for beta_cody in beta_cody_list:
+    #    launcher.add_experiment(beta_cody=beta_cody)
     launcher.add_experiment()
     launcher.run(local, test)
 

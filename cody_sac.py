@@ -187,13 +187,13 @@ class Critic(nn.Module):
             L.log_param('train_critic/q2_fc%d' % i, self.Q2.trunk[i * 2], step)
 
 
-class CURL(nn.Module):
+class Cody(nn.Module):
     """
     CURL
     """
 
     def __init__(self, z_dim, critic, critic_target, action_shape,output_type="continuous"):
-        super(CURL, self).__init__()
+        super(Cody, self).__init__()
         #self.batch_size = batch_size
 
         self.encoder = critic.encoder
@@ -277,8 +277,8 @@ class CURL(nn.Module):
             logits = logits - torch.max(logits, 1)[0][:, None]
         return logits
 
-class CurlSacAgent(object):
-    """CURL representation learning with SAC."""
+class CodySacAgent(object):
+    """Cody representation learning with SAC."""
     def __init__(
         self,
         obs_shape,
@@ -307,10 +307,10 @@ class CurlSacAgent(object):
         cpc_update_freq=1,
         log_interval=100,
         detach_encoder=False,
-        curl_latent_dim=128,
-        curl_lr=1e-7,
-        omega_curl_loss=0.1,
-        beta_curl = 1e-7
+        cody_latent_dim=128,
+        cody_lr=1e-7,
+        omega_cody_loss=0.1,
+        beta_cody = 1e-7
     ):
         self.device = device
         self.discount = discount
@@ -321,11 +321,11 @@ class CurlSacAgent(object):
         self.cpc_update_freq = cpc_update_freq
         self.log_interval = log_interval
         self.image_size = obs_shape[-1]
-        self.curl_latent_dim = curl_latent_dim
+        self.cody_latent_dim = cody_latent_dim
         self.detach_encoder = detach_encoder
         self.encoder_type = encoder_type
-        self.omega_curl_loss=omega_curl_loss
-        self.beta_curl = beta_curl
+        self.omega_cody_loss=omega_cody_loss
+        self.beta_cody = beta_cody
 
         self.transition_model_target_update_freq = 2
         self.transition_model_tau = 0.005
@@ -360,7 +360,7 @@ class CurlSacAgent(object):
             param_encoder_target.data.copy_(param_encoder.data)  # initialize
             param_encoder_target.requires_grad = False
 
-        # tie encoders between actor and critic, and CURL and critic
+        # tie encoders between actor and critic, and Cody and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)
 
         self.log_alpha = torch.tensor(np.log(init_temperature)).to(device)
@@ -382,8 +382,8 @@ class CurlSacAgent(object):
         )
 
         if self.encoder_type == 'pixel':
-            # create CURL encoder (the 128 batch size is probably unnecessary)
-            self.CURL = CURL(encoder_feature_dim,self.critic,self.critic_target,action_shape,output_type='continuous').to(self.device)
+            # create Cody encoder (the 128 batch size is probably unnecessary)
+            self.Cody = Cody(encoder_feature_dim, self.critic, self.critic_target, action_shape, output_type='continuous').to(self.device)
 
             # optimizer for critic encoder for reconstruction loss
             self.encoder_optimizer = torch.optim.Adam(
@@ -397,7 +397,7 @@ class CurlSacAgent(object):
             # )
 
             self.cpc_optimizer = torch.optim.Adam(
-                self.CURL.parameters(), lr=curl_lr
+                self.Cody.parameters(), lr=cody_lr
             )
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         self.mse_loss = nn.MSELoss()
@@ -410,7 +410,7 @@ class CurlSacAgent(object):
         self.actor.train(training)
         self.critic.train(training)
         if self.encoder_type == 'pixel':
-            self.CURL.train(training)
+            self.Cody.train(training)
 
     @property
     def alpha(self):
@@ -501,12 +501,12 @@ class CurlSacAgent(object):
 
     def update_cpc(self, obs_anchor, obs_pos, action, next_obs, cpc_kwargs, L, step):
         
-        nextstate_anchor, state_action_cat = self.CURL.encode(obs_anchor,action, next_obs)
-        nextstate_pos, nextstate_true = self.CURL.encode(obs_pos,action, next_obs, ema=True, detach=True)
+        nextstate_anchor, state_action_cat = self.Cody.encode(obs_anchor,action, next_obs)
+        nextstate_pos, nextstate_true = self.Cody.encode(obs_pos,action, next_obs, ema=True, detach=True)
 
-        logits_1 = self.CURL.compute_logits(nextstate_anchor, nextstate_pos)
+        logits_1 = self.Cody.compute_logits(nextstate_anchor, nextstate_pos)
         ### Bilinear measurement
-        logits_2 = self.CURL.compute_logits(state_action_cat, nextstate_true, equ=False)
+        logits_2 = self.Cody.compute_logits(state_action_cat, nextstate_true, equ=False)
 
         # labels is scalar vector indicating the positive samples on the diagonal of logits
         labels_1 = torch.arange(logits_1.shape[0]).long().to(self.device)
@@ -515,10 +515,10 @@ class CurlSacAgent(object):
         loss_2 = self.cross_entropy_loss(logits_2, labels_2)
 
         loss_3 = self.mse_loss(nextstate_anchor, nextstate_true)
-        loss = loss_1 + self.omega_curl_loss * loss_2 + self.beta_curl * loss_3
+        loss = loss_1 + self.omega_cody_loss * loss_2 + self.beta_cody * loss_3
 
         ###visualization
-        #torchviz.make_dot(loss, params=dict(list(self.CURL.named_parameters()))).render("curl_pytorchviz", format="png")
+        #torchviz.make_dot(loss, params=dict(list(self.Cody.named_parameters()))).render("cody_pytorchviz", format="png")
 
 ####whether need to update encoder parameters
         self.encoder_optimizer.zero_grad()
@@ -533,12 +533,12 @@ class CurlSacAgent(object):
 
         # gradient clip
         #clip_threshold=0.1
-        #torch.nn.utils.clip_grad_norm_(self.CURL.parameters(), clip_threshold)
+        #torch.nn.utils.clip_grad_norm_(self.Cody.parameters(), clip_threshold)
 
         self.encoder_optimizer.step()
         self.cpc_optimizer.step()
         if step % self.log_interval == 0:
-            L.log('train/curl_loss', loss, step)
+            L.log('train/cody_loss', loss, step)
             L.log('train/loss1', loss_1, step)
             L.log('train/loss2', loss_2, step)
             L.log('train/loss3', loss_3, step)
@@ -579,10 +579,10 @@ class CurlSacAgent(object):
             )
 
             utils.soft_update_params(
-                self.CURL.transition_model, self.CURL.transition_model_target, self.transition_model_tau
+                self.Cody.transition_model, self.Cody.transition_model_target, self.transition_model_tau
             )
             utils.soft_update_params(
-                self.CURL.action_encoder, self.CURL.action_encoder_target, self.transition_model_tau
+                self.Cody.action_encoder, self.Cody.action_encoder_target, self.transition_model_tau
             )
             # soft_update f.actor.critic
             # utils.soft_update_params(
@@ -605,9 +605,9 @@ class CurlSacAgent(object):
             self.critic.state_dict(), '%s/critic_%s.pt' % (model_dir, step)
         )
 
-    def save_curl(self, model_dir, step):
+    def save_cody(self, model_dir, step):
         torch.save(
-            self.CURL.state_dict(), '%s/curl_%s.pt' % (model_dir, step)
+            self.Cody.state_dict(), '%s/cody_%s.pt' % (model_dir, step)
         )
         torch.save(self.critic.encoder.state_dict(), '%s/critic_encoder_%s.pt' % (model_dir, step))
         torch.save(self.critic_target.encoder.state_dict(), '%s/critic_target_encoder_%s.pt' % (model_dir, step))
@@ -621,11 +621,11 @@ class CurlSacAgent(object):
             torch.load('%s/critic_%s.pt' % (model_dir, step))
         )
 
-    def load_curl(self, model_dir, step):
+    def load_cody(self, model_dir, step):
         self.critic.encoder.load_state_dict(torch.load('%s/critic_encoder_%s.pt' % (model_dir, step)))
         self.critic_target.encoder.load_state_dict(torch.load('%s/critic_target_encoder_%s.pt' % (model_dir, step)))
         self.actor.encoder.load_state_dict(torch.load('%s/actor_encoder_%s.pt' % (model_dir, step)))
-        self.CURL.load_state_dict(torch.load('%s/curl_%s.pt' % (model_dir, step)))
+        self.Cody.load_state_dict(torch.load('%s/cody_%s.pt' % (model_dir, step)))
 
     def load_init(self):
         self.critic_target.load_state_dict(self.critic.state_dict())
@@ -634,7 +634,7 @@ class CurlSacAgent(object):
             param_encoder_target.data.copy_(param_encoder.data)  # initialize
             param_encoder_target.requires_grad = False
 
-        # tie encoders between actor and critic, and CURL and critic
+        # tie encoders between actor and critic, and Cody and critic
         self.actor.encoder.copy_conv_weights_from(self.critic.encoder)
 
 

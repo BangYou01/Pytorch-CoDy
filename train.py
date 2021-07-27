@@ -15,7 +15,7 @@ import utils
 from logger import Logger
 from video import VideoRecorder
 
-from curl_sac import CurlSacAgent
+from cody_sac import CodySacAgent
 from torchvision import transforms
 
 
@@ -32,8 +32,8 @@ def parse_args():
     parser.add_argument('--work_dir', default='.', type=str)  # modify
 
     # Hyperparameters
-    parser.add_argument('--curl_lr', default=1e-3, type=float)
-    parser.add_argument('--omega_curl_loss', default=0.1, type=float)
+    parser.add_argument('--cody_lr', default=1e-3, type=float)
+    parser.add_argument('--omega_cody_loss', default=0.1, type=float)
 
     parser.add_argument('--pre_transform_image_size', default=84, type=int)
     parser.add_argument('--image_size', default=84, type=int)
@@ -41,7 +41,7 @@ def parse_args():
     # replay buffer
     parser.add_argument('--replay_buffer_capacity', default=100000, type=int)
     # train
-    parser.add_argument('--agent', default='curl_sac', type=str)
+    parser.add_argument('--agent', default='cody_sac', type=str)
     parser.add_argument('--init_steps', default=1000, type=int)
 
     parser.add_argument('--batch_size', default=32, type=int)
@@ -67,7 +67,7 @@ def parse_args():
     parser.add_argument('--encoder_tau', default=0.05, type=float)
     parser.add_argument('--num_layers', default=4, type=int)
     parser.add_argument('--num_filters', default=32, type=int)
-    parser.add_argument('--curl_latent_dim', default=128, type=int)
+    parser.add_argument('--cody_latent_dim', default=128, type=int)
     # sac
     parser.add_argument('--discount', default=0.99, type=float)
     parser.add_argument('--init_temperature', default=0.1, type=float)
@@ -137,8 +137,8 @@ def evaluate(env, agent, video, num_episodes, L, step, args):
 
 
 def make_agent(obs_shape, action_shape, args, device):
-    if args.agent == 'curl_sac':
-        return CurlSacAgent(
+    if args.agent == 'cody_sac':
+        return CodySacAgent(
             obs_shape=obs_shape,
             action_shape=action_shape,
             device=device,
@@ -164,9 +164,9 @@ def make_agent(obs_shape, action_shape, args, device):
             num_filters=args.num_filters,
             log_interval=args.log_interval,
             detach_encoder=args.detach_encoder,
-            curl_latent_dim=args.curl_latent_dim,
-            curl_lr=args.curl_lr,
-            omega_curl_loss=args.omega_curl_loss
+            cody_latent_dim=args.cody_latent_dim,
+            cody_lr=args.cody_lr,
+            omega_cody_loss=args.omega_cody_loss
         )
     else:
         assert 'agent is not supported: %s' % args.agent
@@ -202,7 +202,7 @@ def main(
         encoder_tau,
         num_layers,
         num_filters,
-        curl_latent_dim,
+        cody_latent_dim,
         discount,
         init_temperature,
         alpha_lr,
@@ -213,8 +213,8 @@ def main(
         save_model,
         load_model,
         detach_encoder,
-        curl_lr,
-        omega_curl_loss,
+        cody_lr,
+        omega_cody_loss,
         log_interval,
         seed,
         work_dir
@@ -252,7 +252,7 @@ def main(
         encoder_tau = encoder_tau,
         num_layers = num_layers,
         num_filters = num_filters,
-        curl_latent_dim = curl_latent_dim,
+        cody_latent_dim = cody_latent_dim,
         discount = discount,
         init_temperature = init_temperature,
         alpha_lr = alpha_lr,
@@ -263,8 +263,8 @@ def main(
         save_model= save_model,
         load_model = load_model,
         detach_encoder = detach_encoder,
-        curl_lr = curl_lr,
-        omega_curl_loss = omega_curl_loss,
+        cody_lr = cody_lr,
+        omega_cody_loss = omega_cody_loss,
         log_interval = log_interval,
         seed = seed,
         work_dir = work_dir
@@ -345,7 +345,7 @@ def main(
 
     #######Add read state_dict model ############
     if args.load_model:
-        agent.load_curl(model_dir, 1000000)
+        agent.load_cody(model_dir, 1000000)
         agent.load_init()
     #############################################
 
@@ -362,7 +362,7 @@ def main(
             L.log('eval/episode', episode, step)
             evaluate(env, agent, video, args.num_eval_episodes, L, step,args)
             if args.save_model and episode % 100 == 0:
-                agent.save_curl(model_dir, step)
+                agent.save_cody(model_dir, step)
             if args.save_buffer:
                 replay_buffer.save(buffer_dir)
 
