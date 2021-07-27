@@ -4,6 +4,10 @@ This repository is the official pytorch implementation of CoDy for the DeepMind 
 
 ## Requirements  
 It is simple to install required dependencies by running:  
+```sh
 conda env create -f environment.yml  
+```
 Then you can activate the environment by running:  
+```sh
 source activate py3.6  
+```
